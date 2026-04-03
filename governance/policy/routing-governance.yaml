@@ -1,0 +1,40 @@
+version: 1
+routing_governance:
+  protected_quality_lanes:
+    axiom:
+      preferred_models:
+        - zai/glm-5.1
+      minimum_mode_for_downgrade: EMERGENCY
+    melody:
+      preferred_models:
+        - minimax-portal/MiniMax-M2.7
+      minimum_mode_for_downgrade: EMERGENCY
+    praxis:
+      preferred_models:
+        - anthropic/claude-sonnet-4-6
+      minimum_mode_for_downgrade: PROTECT
+  elastic_lanes:
+    - scout
+    - forge
+    - herald
+    - catalyst
+    - crons
+    - batch
+    - muse
+  low_value_lanes:
+    - crons
+    - batch
+    - herald
+  premium_models:
+    - anthropic/claude-sonnet-4-6
+    - anthropic/claude-opus-4-6
+    - openai-codex/gpt-5.4
+    - zai/glm-5.1
+  churn_thresholds:
+    swap_window_minutes: 60
+    high_swap_count: 4
+    repeat_agent_swap_count: 2
+  mitigation_thresholds:
+    ineffective_window_entries: 4
+    protect_pressure_floor: 60
+    emergency_pressure_floor: 75

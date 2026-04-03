@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hermes.local/governance/schemas/execution_report.schema.json",
+  "title": "ExecutionReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_type",
+    "artifact_id",
+    "schema_version",
+    "created_at",
+    "chain_id",
+    "incident_id",
+    "operator",
+    "execution_status",
+    "executed_scope",
+    "touched_surfaces"
+  ],
+  "properties": {
+    "artifact_type": {"const": "execution_report"},
+    "artifact_id": {"type": "string", "minLength": 1},
+    "schema_version": {"type": "string", "const": "1.0"},
+    "created_at": {"type": "string", "minLength": 1},
+    "chain_id": {"type": "string", "minLength": 1},
+    "incident_id": {"type": "string", "minLength": 1},
+    "operator": {"type": "string", "minLength": 1},
+    "execution_status": {"type": "string", "enum": ["planned", "executed", "blocked"]},
+    "executed_scope": {"type": "array", "items": {"type": "string"}},
+    "touched_surfaces": {"type": "array", "items": {"type": "string"}},
+    "playbook_id": {"type": ["string", "null"]},
+    "notes": {"type": "array", "items": {"type": "string"}}
+  }
+}

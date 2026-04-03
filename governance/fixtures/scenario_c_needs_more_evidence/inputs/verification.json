@@ -1,0 +1,14 @@
+{
+  "artifact_type": "verification_report",
+  "artifact_id": "verification-fixture-c",
+  "schema_version": "1.0",
+  "created_at": "2026-04-02T00:00:00Z",
+  "chain_id": "chain-fixture-c",
+  "incident_id": "incident-fixture-c",
+  "verifier": "verifier",
+  "verdict": "needs_more_evidence",
+  "scope_confirmed": ["scheduler:retry"],
+  "risk_notes": [],
+  "policy_findings": ["missing corroborating evidence"],
+  "is_novel": false
+}

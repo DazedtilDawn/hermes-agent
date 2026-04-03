@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hermes.local/governance/schemas/verification_report.schema.json",
+  "title": "VerificationReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_type",
+    "artifact_id",
+    "schema_version",
+    "created_at",
+    "chain_id",
+    "incident_id",
+    "verifier",
+    "verdict",
+    "scope_confirmed",
+    "is_novel"
+  ],
+  "properties": {
+    "artifact_type": {"const": "verification_report"},
+    "artifact_id": {"type": "string", "minLength": 1},
+    "schema_version": {"type": "string", "const": "1.0"},
+    "created_at": {"type": "string", "minLength": 1},
+    "chain_id": {"type": "string", "minLength": 1},
+    "incident_id": {"type": "string", "minLength": 1},
+    "verifier": {"type": "string", "minLength": 1},
+    "verdict": {"type": "string", "enum": ["validated", "rejected", "needs_more_evidence"]},
+    "scope_confirmed": {"type": "array", "items": {"type": "string"}},
+    "risk_notes": {"type": "array", "items": {"type": "string"}},
+    "policy_findings": {"type": "array", "items": {"type": "string"}},
+    "is_novel": {"type": "boolean"}
+  }
+}

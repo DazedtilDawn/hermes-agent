@@ -1,0 +1,69 @@
+version: 1
+roles:
+  auditor:
+    can_create:
+      - incident_report
+    can_validate: []
+    can_approve: []
+    can_execute: []
+    limitations:
+      - cannot authorize execution
+      - cannot approve protected-surface writes
+      - cannot override novelty routing
+  verifier:
+    can_create:
+      - verification_report
+    can_validate:
+      - incident_report
+    can_approve: []
+    can_execute: []
+    limitations:
+      - cannot approve class2_or_higher
+      - cannot authorize protected-surface writes
+      - cannot convert rejected evidence into approval
+  owner:
+    can_create:
+      - approval_report
+    can_validate:
+      - governance_incident
+      - owner_queue_item
+    can_approve:
+      - class1_exceptions
+      - class2
+      - class3
+      - protected_surface_changes
+      - novel_actions
+    can_execute: []
+    limitations:
+      - execution remains delegated to operator
+  operator:
+    can_create:
+      - execution_report
+    can_validate: []
+    can_approve: []
+    can_execute:
+      - approved_class1_playbooks
+      - owner_approved_class2_or_higher_actions
+    limitations:
+      - must not improvise
+      - must not widen scope
+      - must not touch protected surfaces without owner approval
+classes:
+  class0:
+    description: observe only
+    auto_execution: false
+    requires_owner_approval: false
+  class1:
+    description: reversible operational hygiene via pre-approved playbook
+    auto_execution: true
+    requires_preapproved_playbook: true
+    requires_reversible: true
+    requires_owner_approval: false
+  class2:
+    description: meaningful operational change
+    auto_execution: false
+    requires_owner_approval: true
+  class3:
+    description: high-risk or identity/security boundary change
+    auto_execution: false
+    requires_owner_approval: true

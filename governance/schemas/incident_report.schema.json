@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hermes.local/governance/schemas/incident_report.schema.json",
+  "title": "IncidentReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_type",
+    "artifact_id",
+    "schema_version",
+    "created_at",
+    "chain_id",
+    "title",
+    "summary",
+    "action_class",
+    "scope",
+    "touched_surfaces",
+    "is_novel",
+    "status"
+  ],
+  "properties": {
+    "artifact_type": {"const": "incident_report"},
+    "artifact_id": {"type": "string", "minLength": 1},
+    "schema_version": {"type": "string", "const": "1.0"},
+    "created_at": {"type": "string", "minLength": 1},
+    "chain_id": {"type": "string", "minLength": 1},
+    "title": {"type": "string", "minLength": 1},
+    "summary": {"type": "string", "minLength": 1},
+    "action_class": {"type": "string", "enum": ["class0", "class1", "class2", "class3"]},
+    "proposed_action": {"type": ["string", "null"]},
+    "scope": {"type": "array", "items": {"type": "string"}},
+    "touched_surfaces": {"type": "array", "items": {"type": "string"}},
+    "protected_surface_expected": {"type": "boolean"},
+    "is_novel": {"type": "boolean"},
+    "playbook_id": {"type": ["string", "null"]},
+    "playbook_preapproved": {"type": "boolean"},
+    "reversible": {"type": "boolean"},
+    "evidence": {"type": "array", "items": {"type": "string"}},
+    "status": {"type": "string", "enum": ["open", "verified", "approved", "executed", "closed", "blocked"]}
+  }
+}

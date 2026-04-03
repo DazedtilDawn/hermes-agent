@@ -1,0 +1,32 @@
+version: 1
+escalation_rules:
+  class0:
+    route: observe_only
+    queue_owner: false
+    auto_execute: false
+  class1:
+    route: verifier_then_operator
+    queue_owner_on_novelty: true
+    queue_owner_on_policy_conflict: true
+    auto_execute: true
+  class2:
+    route: verifier_then_owner_then_operator
+    queue_owner: true
+    auto_execute: false
+  class3:
+    route: verifier_then_owner_then_operator
+    queue_owner: true
+    auto_execute: false
+novelty:
+  evaluator_sets: is_novel
+  policy_effect:
+    owner_review_required: true
+    auto_execute_allowed: false
+    class1_treatment_allowed: false
+governance_failures:
+  queue_owner: true
+  notify_best_effort: true
+  persistence_required_first: true
+auto_execution_pause:
+  route_to_owner: true
+  notify_default: true

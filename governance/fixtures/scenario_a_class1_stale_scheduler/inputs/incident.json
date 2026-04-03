@@ -1,0 +1,20 @@
+{
+  "artifact_type": "incident_report",
+  "artifact_id": "incident-fixture-a",
+  "schema_version": "1.0",
+  "created_at": "2026-04-02T00:00:00Z",
+  "chain_id": "chain-fixture-a",
+  "title": "Stale scheduler",
+  "summary": "Scheduler appears stale and eligible for safe retry",
+  "action_class": "class1",
+  "proposed_action": "Retry safe job",
+  "scope": ["scheduler:retry"],
+  "touched_surfaces": ["scheduler_runtime"],
+  "protected_surface_expected": false,
+  "is_novel": false,
+  "playbook_id": "playbook.retry_safe_job",
+  "playbook_preapproved": true,
+  "reversible": true,
+  "evidence": ["stale heartbeat"],
+  "status": "open"
+}

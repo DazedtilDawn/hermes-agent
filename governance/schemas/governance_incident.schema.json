@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hermes.local/governance/schemas/governance_incident.schema.json",
+  "title": "GovernanceIncident",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_type",
+    "artifact_id",
+    "schema_version",
+    "created_at",
+    "failure_type",
+    "severity",
+    "summary",
+    "details",
+    "queue_state"
+  ],
+  "properties": {
+    "artifact_type": {"const": "governance_incident"},
+    "artifact_id": {"type": "string", "minLength": 1},
+    "schema_version": {"type": "string", "const": "1.0"},
+    "created_at": {"type": "string", "minLength": 1},
+    "updated_at": {"type": ["string", "null"]},
+    "chain_id": {"type": ["string", "null"]},
+    "source_artifact_id": {"type": ["string", "null"]},
+    "failure_type": {
+      "type": "string",
+      "enum": [
+        "unknown-chain artifact ingestion",
+        "illegal state transition",
+        "approval scope mismatch",
+        "authorization chain failure",
+        "unauthorized execution",
+        "scope violation",
+        "unexpected protected-surface touch"
+      ]
+    },
+    "severity": {"type": "string", "enum": ["medium", "high", "critical"]},
+    "summary": {"type": "string", "minLength": 1},
+    "details": {"type": "object"},
+    "queue_state": {"type": "string", "enum": ["queued", "acknowledged", "resolved", "dismissed"]},
+    "notification_status": {"type": "string", "enum": ["not_attempted", "sent", "failed"]}
+  }
+}

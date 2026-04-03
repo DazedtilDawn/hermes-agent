@@ -1,0 +1,35 @@
+version: 1
+incident_taxonomy:
+  operational:
+    class0:
+      - status_observation
+      - drift_observation
+    class1:
+      - stale_scheduler
+      - dead_gateway_restart
+      - stale_lock_cleanup
+      - safe_job_retry
+    class2:
+      - config_change
+      - identity_change
+      - model_reroute
+    class3:
+      - secret_rotation
+      - authority_boundary_change
+      - protected_surface_mutation
+  governance_failures:
+    - unknown-chain artifact ingestion
+    - illegal state transition
+    - approval scope mismatch
+    - authorization chain failure
+    - unauthorized execution
+    - scope violation
+    - unexpected protected-surface touch
+severity_defaults:
+  unknown-chain artifact ingestion: high
+  illegal state transition: high
+  approval scope mismatch: high
+  authorization chain failure: high
+  unauthorized execution: critical
+  scope violation: critical
+  unexpected protected-surface touch: critical

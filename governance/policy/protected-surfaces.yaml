@@ -1,0 +1,19 @@
+version: 1
+protected_surfaces:
+  - openclaw.json
+  - models.json
+  - prompts/system
+  - prompts/bootstrap
+  - credentials
+  - secrets
+  - memory_store
+  - identity_registry
+  - agent_authority_map
+policy:
+  auto_write_allowed: false
+  unexpected_touch_is_governance_incident: true
+  owner_approval_required_for_any_write: true
+  verifier_cannot_authorize: true
+notes:
+  - Protected surfaces are conceptually sacred even when physically file-backed.
+  - Runtime collectors may observe protected surfaces, but operators may not autonomously mutate them.

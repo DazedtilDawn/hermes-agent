@@ -1,0 +1,10 @@
+version: 1
+approved_write_methods:
+  class1:
+    - playbook.restart_dead_gateway
+    - playbook.clear_stale_lock
+    - playbook.retry_safe_job
+  class2_plus:
+    - owner_approved_manual_execution
+notes:
+  - Stub file for future integration with concrete execution transports.

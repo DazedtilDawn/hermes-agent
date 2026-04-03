@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hermes.local/governance/schemas/approval_report.schema.json",
+  "title": "ApprovalReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_type",
+    "artifact_id",
+    "schema_version",
+    "created_at",
+    "chain_id",
+    "incident_id",
+    "approver_role",
+    "approval_status",
+    "approved_scope",
+    "allowed_surfaces"
+  ],
+  "properties": {
+    "artifact_type": {"const": "approval_report"},
+    "artifact_id": {"type": "string", "minLength": 1},
+    "schema_version": {"type": "string", "const": "1.0"},
+    "created_at": {"type": "string", "minLength": 1},
+    "chain_id": {"type": "string", "minLength": 1},
+    "incident_id": {"type": "string", "minLength": 1},
+    "approver_role": {"type": "string", "enum": ["owner"]},
+    "approval_status": {"type": "string", "enum": ["approved", "rejected", "limited"]},
+    "approved_scope": {"type": "array", "items": {"type": "string"}},
+    "allowed_surfaces": {"type": "array", "items": {"type": "string"}},
+    "notes": {"type": "array", "items": {"type": "string"}}
+  }
+}

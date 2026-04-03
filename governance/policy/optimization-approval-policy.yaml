@@ -1,0 +1,50 @@
+version: 1
+optimization_approval:
+  cruise:
+    approval_required: true
+    auto_apply_allowed: false
+    max_lane_changes: 1
+    allowed_recommendation_kinds:
+      - durable_lane_policy_candidate
+      - recurring_lane_candidate
+      - review_for_cost_efficiency
+  conserve:
+    approval_required: true
+    auto_apply_allowed: false
+    max_lane_changes: 1
+    allowed_recommendation_kinds:
+      - codex_pressure_relief
+      - durable_lane_policy_candidate
+      - review_for_cost_efficiency
+      - downgrade_candidate
+  protect:
+    approval_required: true
+    auto_apply_allowed: false
+    max_lane_changes: 2
+    allowed_recommendation_kinds:
+      - codex_pressure_relief
+      - investigate_churn
+      - durable_lane_policy_candidate
+      - downgrade_candidate
+  emergency:
+    approval_required: true
+    auto_apply_allowed: false
+    max_lane_changes: 2
+    allowed_recommendation_kinds:
+      - codex_pressure_relief
+      - investigate_churn
+      - downgrade_candidate
+      - protect_quality_lane
+  protected_lane_always_requires_explicit_owner: true
+  option_limit: 3
+  downgrade_preferences:
+    codex:
+      - openai-codex/gpt-5.4-mini
+      - minimax-portal/MiniMax-M2.7
+    claude:
+      - anthropic/claude-haiku-4-5
+      - minimax-portal/MiniMax-M2.7
+    minimax:
+      - minimax-portal/MiniMax-M2.7
+    zai:
+      - minimax-portal/MiniMax-M2.7

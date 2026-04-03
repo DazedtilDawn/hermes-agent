@@ -616,6 +616,281 @@ class DiscordAdapter(BasePlatformAdapter):
                         guild_id,
                     )
 
+            @self._client.event
+            async def on_interaction(interaction):
+                """Handle governance approval button clicks (custom_id starting with gov_)."""
+                # Only handle component interactions (button clicks)
+                if not DISCORD_AVAILABLE:
+                    return
+                if interaction.type != discord.InteractionType.component:
+                    return
+
+                custom_id = (interaction.data or {}).get("custom_id", "")
+                if not custom_id.startswith("gov_"):
+                    return
+
+                adapter = adapter_self  # captured closure
+
+                try:
+                    # --- Authorization check ---
+                    if not adapter._is_allowed_user(str(interaction.user.id)):
+                        await interaction.response.send_message(
+                            "You are not authorized to act on governance proposals.",
+                            ephemeral=True,
+                        )
+                        return
+
+                    # --- Parse custom_id ---
+                    # Format: gov_{action}_{artifact_id}[_{extra}]
+                    #   approve: gov_approve_{artifact_id}
+                    #   reject:  gov_reject_{artifact_id}
+                    #   snooze:  gov_snooze_{artifact_id}_{minutes}
+                    #   alt:     gov_alt_{artifact_id}_{model_name}
+                    parts = custom_id.split("_", 2)  # ["gov", "{action}", "{rest}"]
+                    if len(parts) < 3:
+                        await interaction.response.send_message(
+                            "Invalid governance button payload.", ephemeral=True
+                        )
+                        return
+
+                    action = parts[1]  # approve, reject, snooze, alt
+                    rest = parts[2]
+
+                    # Parse artifact_id and extra args per action
+                    minutes = None
+                    alt_model = None
+
+                    if action == "snooze":
+                        # gov_snooze_{artifact_id}_{minutes}
+                        rest_parts = rest.rsplit("_", 1)
+                        if len(rest_parts) == 2 and rest_parts[1].isdigit():
+                            artifact_id = rest_parts[0]
+                            minutes = int(rest_parts[1])
+                        else:
+                            artifact_id = rest
+                            minutes = 30
+                    elif action == "alt":
+                        # gov_alt_{artifact_id}_{model_name}
+                        rest_parts = rest.split("_", 1)
+                        if len(rest_parts) == 2:
+                            artifact_id = rest_parts[0]
+                            alt_model = rest_parts[1]
+                        else:
+                            artifact_id = rest
+                    else:
+                        artifact_id = rest
+
+                    if action not in ("approve", "reject", "snooze", "alt", "rollback"):
+                        await interaction.response.send_message(
+                            f"Unknown governance action: {action}", ephemeral=True
+                        )
+                        return
+
+                    # --- Acknowledge immediately ---
+                    await interaction.response.defer()
+
+                    # --- Resolve proposal artifact ---
+                    from governance.controller.config import build_config
+                    from governance.controller.optimization_approvals import (
+                        _resolve_artifact,
+                        _write_snooze,
+                        _clear_snooze,
+                        ROUTING_FILE,
+                    )
+                    from governance.controller.utils import utc_now, write_json
+
+                    cfg = build_config()
+                    artifact_path = _resolve_artifact(cfg, artifact_id)
+
+                    if artifact_path is None:
+                        await interaction.followup.send(
+                            f"Could not find proposal artifact for `{artifact_id}`.",
+                            ephemeral=True,
+                        )
+                        return
+
+                    proposal = json.loads(artifact_path.read_text(encoding="utf-8"))
+                    proposals_list = proposal.get("proposals", []) or []
+                    if not proposals_list:
+                        await interaction.followup.send(
+                            "Proposal artifact contains no proposals.", ephemeral=True
+                        )
+                        return
+
+                    target = proposals_list[0]
+                    agent = target.get("agent", "unknown")
+
+                    # --- Process the action ---
+                    decision = {
+                        "ok": True,
+                        "action": action,
+                        "artifact": artifact_path.name,
+                        "agent": agent,
+                    }
+                    new_model = None
+                    color = None
+                    label = ""
+
+                    if action == "reject":
+                        decision["status"] = "rejected"
+                        color = discord.Color.red()
+                        label = "Rejected"
+
+                    elif action == "snooze":
+                        decision["status"] = "snoozed"
+                        decision["minutes"] = minutes
+                        _write_snooze(cfg, artifact_path.name, minutes)
+                        color = discord.Color.gold()
+                        label = f"Snoozed for {minutes}m"
+
+                    elif action == "rollback":
+                        # rollback — restore the model before the optimization
+                        rollback_model = target.get("rollback_model") or target.get("current_model")
+                        if not rollback_model:
+                            await interaction.followup.send(
+                                "No rollback target found in proposal.", ephemeral=True
+                            )
+                            return
+                        routing = json.loads(ROUTING_FILE.read_text(encoding="utf-8"))
+                        routing.setdefault("routing", {})
+                        previous_model = routing["routing"].get(agent, "unknown")
+                        routing["routing"][agent] = rollback_model
+                        routing["updatedAt"] = utc_now()
+                        ROUTING_FILE.write_text(
+                            json.dumps(routing, indent=2) + "\n", encoding="utf-8"
+                        )
+                        decision["status"] = "rolled_back"
+                        decision["new_model"] = rollback_model
+                        decision["previous_model"] = previous_model
+                        _clear_snooze(cfg, artifact_path.name)
+                        color = discord.Color.dark_magenta()
+                        label = f"Rolled back → {rollback_model}"
+
+                    else:
+                        # approve or alt — update model-routing.json
+                        routing = json.loads(ROUTING_FILE.read_text(encoding="utf-8"))
+                        routing.setdefault("routing", {})
+                        current_model = routing["routing"].get(
+                            agent, target.get("current_model")
+                        )
+
+                        if action == "approve":
+                            new_model = target["recommended_model"]
+                        elif action == "alt":
+                            new_model = alt_model or target.get("current_model")
+
+                        if not new_model:
+                            await interaction.followup.send(
+                                "No target model could be resolved.", ephemeral=True
+                            )
+                            return
+
+                        routing["routing"][agent] = new_model
+                        routing["updatedAt"] = utc_now()
+                        ROUTING_FILE.write_text(
+                            json.dumps(routing, indent=2) + "\n", encoding="utf-8"
+                        )
+                        decision["status"] = "applied"
+                        decision["new_model"] = new_model
+                        decision["previous_model"] = current_model
+                        _clear_snooze(cfg, artifact_path.name)
+
+                        color = discord.Color.green()
+                        label = f"Approved → {new_model}"
+
+                    # --- Write decision artifact ---
+                    decision_id = f"gov-{interaction.id}"
+                    log_path = (
+                        cfg.controller_decisions_dir
+                        / f"optimization_approval_{artifact_path.stem}_{decision_id}.json"
+                    )
+                    write_json(log_path, {
+                        "artifact_type": "optimization_approval_action",
+                        "artifact_id": decision_id,
+                        "created_at": utc_now(),
+                        "command": {
+                            "action": action,
+                            "artifact": artifact_id,
+                            "minutes": minutes,
+                            "model": alt_model,
+                            "source": "discord_button",
+                            "user": str(interaction.user),
+                            "user_id": str(interaction.user.id),
+                        },
+                        "result": decision,
+                    })
+
+                    # --- Update the original Discord message ---
+                    embed = None
+                    if interaction.message and interaction.message.embeds:
+                        embed = interaction.message.embeds[0]
+                        if color is not None:
+                            embed.color = color
+                        embed.set_footer(
+                            text=f"{label} by {interaction.user.display_name}"
+                        )
+
+                    view = interaction.message.components if interaction.message else None
+                    # Disable all buttons on the original view
+                    disabled_view = discord.ui.View()
+                    disabled_view.timeout = None
+                    for item in (interaction.message.components or []):
+                        for child in getattr(item, "children", []):
+                            btn_data = getattr(child, "data", {})
+                            b_label = btn_data.get("label", "?")
+                            b_style = getattr(
+                                discord.ButtonStyle,
+                                btn_data.get("style", "secondary").lower(),
+                                discord.ButtonStyle.secondary,
+                            )
+                            disabled_view.add_item(
+                                discord.ui.Button(
+                                    label=b_label,
+                                    style=b_style,
+                                    disabled=True,
+                                )
+                            )
+
+                    try:
+                        await interaction.message.edit(
+                            embed=embed, view=disabled_view
+                        )
+                    except Exception as edit_err:
+                        logger.warning(
+                            "[%s] Failed to edit governance message: %s",
+                            adapter.name, edit_err,
+                        )
+
+                    # --- Followup confirmation ---
+                    await interaction.followup.send(
+                        f"**{label}** for `{agent}` (by {interaction.user.display_name})",
+                        ephemeral=False,
+                    )
+                    logger.info(
+                        "[%s] Governance %s applied for agent=%s by %s",
+                        adapter.name, action, agent, interaction.user,
+                    )
+
+                except Exception as exc:
+                    logger.error(
+                        "[%s] Error in governance on_interaction: %s",
+                        adapter_self.name, exc, exc_info=True,
+                    )
+                    # Best-effort error feedback
+                    try:
+                        if not interaction.response.is_done():
+                            await interaction.response.send_message(
+                                f"Error processing governance action: {exc}",
+                                ephemeral=True,
+                            )
+                        else:
+                            await interaction.followup.send(
+                                f"Error processing governance action: {exc}",
+                                ephemeral=True,
+                            )
+                    except Exception:
+                        pass
+
             # Register slash commands
             self._register_slash_commands()
 
@@ -2042,7 +2317,12 @@ class DiscordAdapter(BasePlatformAdapter):
         # Messages already inside threads or DMs are unaffected.
         auto_threaded_channel = None
         if not is_thread and not isinstance(message.channel, discord.DMChannel):
-            auto_thread = os.getenv("DISCORD_AUTO_THREAD", "true").lower() in ("true", "1", "yes")
+            # Config.yaml takes precedence if set; env var is the fallback.
+            # Env var still works for dynamic changes when not in config.yaml.
+            if "auto_thread" in self.config.extra:
+                auto_thread = bool(self.config.extra["auto_thread"])
+            else:
+                auto_thread = os.getenv("DISCORD_AUTO_THREAD", "true").lower() in ("true", "1", "yes")
             if auto_thread:
                 thread = await self._auto_create_thread(message)
                 if thread:
