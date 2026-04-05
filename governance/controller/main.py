@@ -288,6 +288,38 @@ def _cooldown_elapsed(last_restart_at: str | None, cooldown_sec: int) -> bool:
     return (now_dt - last_dt).total_seconds() >= cooldown_sec
 
 
+def _should_alert(
+    state: dict[str, Any],
+    category: str,
+    key: str,
+    cooldown_seconds: int = 14400,
+) -> bool:
+    """Check if an alert should fire based on key change AND cooldown elapsed.
+
+    Returns True if the key is new/changed AND enough time has passed since the last alert.
+    If the cooldown hasn't elapsed, increments the silent recurrence counter.
+    """
+    state_key = f'{category}_key'
+    last_alerted_key = f'last_{category}_alerted_at'
+    recurrence_key = f'{category}_recurrence_count'
+
+    # If key unchanged, no alert (existing behavior)
+    if state.get(state_key) == key:
+        return False
+
+    # Key changed — check cooldown
+    last_alerted = state.get(last_alerted_key)
+    if last_alerted and not _cooldown_elapsed(last_alerted, cooldown_seconds):
+        # Cooldown not elapsed — suppress alert but track recurrence
+        state[recurrence_key] = state.get(recurrence_key, 0) + 1
+        return False
+
+    # Key changed AND cooldown elapsed (or first occurrence) — alert
+    state[last_alerted_key] = utc_now()
+    state[recurrence_key] = 0  # Reset recurrence counter on successful alert
+    return True
+
+
 def _restart_gateway_service() -> None:
     result = subprocess.run(
         ['/opt/homebrew/bin/openclaw', 'gateway', 'restart'],
@@ -507,7 +539,7 @@ def _evaluate_optimization_review_digest(
         return messages
 
     key = '|'.join(item.get('kind', '') + ':' + item.get('summary', '') for item in items[:5])
-    if state.get('optimization_digest_key') == key:
+    if not _should_alert(state, 'optimization_digest', key, cooldown_seconds=14400):
         return messages
 
     top = items[0]
@@ -541,7 +573,9 @@ def _evaluate_lane_recommendation_memory(
         return messages
 
     key = '|'.join(rec.get('kind', '') + ':' + rec.get('summary', '') for rec in recommendations[:5])
-    if state.get('lane_memory_key') == key:
+    recurrence = state.get('lane_memory_recurrence_count', 0)
+    if not _should_alert(state, 'lane_memory', key, cooldown_seconds=14400):
+        # Key changed but still in cooldown — log suppressed recurrence silently
         return messages
 
     top = recommendations[0]
@@ -555,10 +589,13 @@ def _evaluate_lane_recommendation_memory(
         touched_surfaces=['provider_usage', 'model_routing'],
         evidence=[json.dumps(rec, sort_keys=True) for rec in recommendations[:5]],
     )
-    messages.append(
-        'Lane recommendation memory alert: recurring optimization pattern detected. '
+    msg = (
+        f'Lane recommendation memory alert: recurring optimization pattern detected. '
         f'Incident: {incident_path.name} top={top.get("kind")}: {top.get("summary")}'
     )
+    if recurrence > 0:
+        msg += f' (cooldown suppressed {recurrence} prior recurrence(s))'
+    messages.append(msg)
     state['lane_memory_key'] = key
     return messages
 
@@ -575,7 +612,7 @@ def _evaluate_burn_cause_hypotheses(
         return messages
 
     key = '|'.join(h.get('kind', '') + ':' + h.get('confidence', '') for h in hypotheses[:5])
-    if state.get('burn_cause_key') == key:
+    if not _should_alert(state, 'burn_cause', key, cooldown_seconds=14400):
         return messages
 
     top = hypotheses[0]
@@ -609,7 +646,7 @@ def _evaluate_burn_intelligence(
         return messages
 
     key = '|'.join(rec.get('kind', '') + ':' + rec.get('summary', '') for rec in recommendations[:5])
-    if state.get('burn_recommendation_key') == key:
+    if not _should_alert(state, 'burn_recommendation', key, cooldown_seconds=14400):
         return messages
 
     incident_path = _emit_shadow_incident(
@@ -682,7 +719,7 @@ def _evaluate_usage_governance(
 
     ineffective = usage.get('ineffective_deficit_mitigation', {})
     ineffective_key = f"{ineffective.get('mode')}:{ineffective.get('window_entries')}:{ineffective.get('reason')}"
-    if ineffective.get('detected') and state.get('usage_ineffective_key') != ineffective_key:
+    if ineffective.get('detected') and _should_alert(state, 'usage_ineffective', ineffective_key, cooldown_seconds=14400):
         incident_path = _emit_shadow_incident(
             ledgers,
             validator,
