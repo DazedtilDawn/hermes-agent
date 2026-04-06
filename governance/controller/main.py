@@ -193,9 +193,9 @@ def run_shadow_openclaw(
     messages.extend(burn_messages)
     cause_messages = _evaluate_burn_cause_hypotheses(ledgers, validator, causes, state)
     messages.extend(cause_messages)
-    lane_messages = _evaluate_lane_recommendation_memory(ledgers, validator, lane_memory, state)
+    lane_messages = _evaluate_lane_recommendation_memory(ledgers, validator, lane_memory, state, errors=errors, usage=usage, burn=burn)
     messages.extend(lane_messages)
-    digest_messages = _evaluate_optimization_review_digest(ledgers, validator, digest, state)
+    digest_messages = _evaluate_optimization_review_digest(ledgers, validator, digest, state, errors=errors, usage=usage, burn=burn)
     messages.extend(digest_messages)
     proposal_messages = _evaluate_optimization_proposals(config, ledgers, proposals, state)
     messages.extend(proposal_messages)
@@ -531,6 +531,10 @@ def _evaluate_optimization_review_digest(
     validator: SchemaValidator,
     digest: dict[str, Any],
     state: dict[str, Any],
+    *,
+    errors: dict[str, Any] | None = None,
+    usage: dict[str, Any] | None = None,
+    burn: dict[str, Any] | None = None,
 ) -> list[str]:
     messages: list[str] = []
     items = digest.get('digest_items', []) or []
@@ -553,8 +557,36 @@ def _evaluate_optimization_review_digest(
         touched_surfaces=['provider_usage', 'model_routing'],
         evidence=[json.dumps(item, sort_keys=True) for item in items[:5]],
     )
+    err_info = ''
+    if errors:
+        err_info = (
+            f"  Task stats: failures={errors.get('task_failures_total', 0)}, "
+            f"timeouts={errors.get('task_timed_out', 0)}, "
+            f"active={errors.get('task_active', 0)}"
+        )
+    usage_info = ''
+    if usage:
+        routing_mode = usage.get('routing_mode', 'unknown')
+        provider_modes = usage.get('provider_modes', {})
+        mode_parts = [f"mode={routing_mode}"]
+        for prov, mode_val in provider_modes.items():
+            if prov not in ('_headroom',):
+                mode_parts.append(f"{prov}={mode_val}")
+        if mode_parts:
+            usage_info = f"  Routing: {', '.join(mode_parts)}"
+    burn_info = ''
+    if burn:
+        pressure = burn.get('pressure_delta_percent', 0)
+        snapshots = burn.get('snapshot_count', 0)
+        churn_flag = burn.get('churn_without_recovery', False)
+        churn_note = ' [CHURN STALLED]' if churn_flag else ''
+        burn_info = f"  Burn: pressure={pressure:+.1f}%, snapshots={snapshots}{churn_note}"
+
     messages.append(
         f'⚠️ Optimization review digest: {top.get("kind")} — {top.get("summary")}\n'
+        f'{err_info}\n'
+        f'{usage_info}\n'
+        f'{burn_info}\n'
         f'  Action: Review condensed signals; highest-priority items should inform next routing-policy update\n'
         f'  Incident: {incident_path.name}'
     )
@@ -566,6 +598,10 @@ def _evaluate_lane_recommendation_memory(
     validator: SchemaValidator,
     lane_memory: dict[str, Any],
     state: dict[str, Any],
+    *,
+    errors: dict[str, Any] | None = None,
+    usage: dict[str, Any] | None = None,
+    burn: dict[str, Any] | None = None,
 ) -> list[str]:
     messages: list[str] = []
     recommendations = lane_memory.get('recommendations', []) or []
@@ -590,8 +626,36 @@ def _evaluate_lane_recommendation_memory(
         touched_surfaces=['provider_usage', 'model_routing'],
         evidence=[json.dumps(rec, sort_keys=True) for rec in recommendations[:5]],
     )
+    err_info = ''
+    if errors:
+        err_info = (
+            f"  Task stats: failures={errors.get('task_failures_total', 0)}, "
+            f"timeouts={errors.get('task_timed_out', 0)}, "
+            f"active={errors.get('task_active', 0)}"
+        )
+    usage_info = ''
+    if usage:
+        routing_mode = usage.get('routing_mode', 'unknown')
+        provider_modes = usage.get('provider_modes', {})
+        mode_parts = [f"mode={routing_mode}"]
+        for prov, mode_val in provider_modes.items():
+            if prov not in ('_headroom',):
+                mode_parts.append(f"{prov}={mode_val}")
+        if mode_parts:
+            usage_info = f"  Routing: {', '.join(mode_parts)}"
+    burn_info = ''
+    if burn:
+        pressure = burn.get('pressure_delta_percent', 0)
+        snapshots = burn.get('snapshot_count', 0)
+        churn_flag = burn.get('churn_without_recovery', False)
+        churn_note = ' [CHURN STALLED]' if churn_flag else ''
+        burn_info = f"  Burn: pressure={pressure:+.1f}%, snapshots={snapshots}{churn_note}"
+
     msg = (
         f'⚠️ Lane recommendation memory: {top.get("kind")} — {top.get("summary")}\n'
+        f'{err_info}\n'
+        f'{usage_info}\n'
+        f'{burn_info}\n'
         f'  Action: If this pattern persists across 3+ digests, promote to durable routing-policy review item\n'
         f'  Incident: {incident_path.name}'
     )
