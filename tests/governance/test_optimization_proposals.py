@@ -37,8 +37,8 @@ def test_optimization_proposals_mark_protected_lanes(governance_root):
         'lane_burn_insights': [
             {
                 'agent': 'praxis',
-                'model': 'anthropic/claude-sonnet-4-6',
-                'provider': 'claude',
+                'model': 'zai/glm-5.1',
+                'provider': 'zai',
                 'suggestion': 'review_for_cost_efficiency',
             }
         ],

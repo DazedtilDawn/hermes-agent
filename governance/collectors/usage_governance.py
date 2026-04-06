@@ -169,7 +169,6 @@ def _lane_burn_insights(policy: RoutingGovernancePolicy, routing_map: dict[str, 
     providers = codexbar.get('providers', {}) if isinstance(codexbar, dict) else {}
     insights = []
     codex_primary = (providers.get('codex') or {}).get('primary_used_percent')
-    claude_primary = (providers.get('claude') or {}).get('primary_used_percent')
 
     for agent, model in routing_map.items():
         if model not in policy.premium_models:
@@ -183,8 +182,6 @@ def _lane_burn_insights(policy: RoutingGovernancePolicy, routing_map: dict[str, 
             provider_pressure = None
             if provider == 'codex':
                 provider_pressure = codex_primary
-            elif provider == 'claude':
-                provider_pressure = claude_primary
             insights.append({
                 'agent': agent,
                 'model': model,
@@ -251,8 +248,6 @@ def _safe_collect_codexbar_usage() -> dict[str, Any]:
 
 def _provider_from_model(model: str) -> str:
     lowered = model.lower()
-    if 'anthropic/' in lowered or 'claude' in lowered:
-        return 'claude'
     if 'openai-codex/' in lowered or 'gpt-5.4' in lowered or 'codex' in lowered:
         return 'codex'
     if 'minimax' in lowered:

@@ -5,7 +5,7 @@ import subprocess
 from typing import Any
 
 CODEXBAR_BIN = 'codexbar'
-TRACKED_PROVIDERS = ('codex', 'claude', 'minimax', 'cursor', 'zai')
+TRACKED_PROVIDERS = ('codex', 'minimax', 'cursor', 'zai')
 
 
 def collect() -> dict[str, Any]:

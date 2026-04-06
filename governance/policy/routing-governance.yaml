@@ -11,7 +11,7 @@ routing_governance:
       minimum_mode_for_downgrade: EMERGENCY
     praxis:
       preferred_models:
-        - anthropic/claude-sonnet-4-6
+        - zai/glm-5.1
       minimum_mode_for_downgrade: PROTECT
   elastic_lanes:
     - scout
@@ -26,8 +26,6 @@ routing_governance:
     - batch
     - herald
   premium_models:
-    - anthropic/claude-sonnet-4-6
-    - anthropic/claude-opus-4-6
     - openai-codex/gpt-5.4
     - zai/glm-5.1
   churn_thresholds:

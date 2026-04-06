@@ -25,12 +25,12 @@ def test_shadow_runner_emits_usage_governance_alert(monkeypatch, governance_root
     monkeypatch.setattr(gov_main, 'collect_usage_governance', lambda _config: {
         'collector': 'usage_governance',
         'routing_mode': 'CRUISE',
-        'provider_modes': {'claude': 'CRUISE'},
-        'provider_composites': {'claude': 22.0},
+        'provider_modes': {'codex': 'CRUISE'},
+        'provider_composites': {'codex': 22.0},
         'codexbar_usage': {'providers': {}},
         'provider_pressure_watch': {'providers_over_70_pct': [], 'high_pressure_detected': False},
         'lane_burn_insights': [],
-        'protected_lane_downgrades': [{'agent': 'axiom', 'current_model': 'openai-codex/gpt-5.4-mini'}],
+        'protected_lane_downgrades': [{'agent': 'axiom', 'current_model': 'openai-codex/gpt-5.4-mini', 'preferred_models': ['zai/glm-5.1'], 'current_mode': 'CRUISE', 'minimum_mode_for_downgrade': 'EMERGENCY'}],
         'premium_low_value_assignments': [],
         'routing_churn': {'swap_window_minutes': 60, 'recent_swap_count': 0, 'high_churn': False, 'churn_agents': []},
         'ineffective_deficit_mitigation': {'detected': False, 'reason': 'test_default'},
@@ -42,6 +42,6 @@ def test_shadow_runner_emits_usage_governance_alert(monkeypatch, governance_root
     rc = gov_main.run_shadow_openclaw('discord:#approvals', failure_delta_threshold=10)
     assert rc == 0
     assert len(sent) >= 1
-    assert 'protected-quality lane downgrade detected' in sent[0]
+    assert 'Protected lane downgrade' in sent[0]
     assert any(config.incidents_dir.glob('*.json'))
     assert any((config.root_dir / 'reports' / 'burn-attribution').glob('*.json'))

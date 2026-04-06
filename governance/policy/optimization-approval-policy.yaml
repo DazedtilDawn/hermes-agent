@@ -41,9 +41,6 @@ optimization_approval:
     codex:
       - openai-codex/gpt-5.4-mini
       - minimax-portal/MiniMax-M2.7
-    claude:
-      - anthropic/claude-haiku-4-5
-      - minimax-portal/MiniMax-M2.7
     minimax:
       - minimax-portal/MiniMax-M2.7
     zai:

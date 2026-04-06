@@ -28,10 +28,10 @@ def test_usage_governance_detects_protected_lane_downgrade(governance_root):
             'profile': 'CRUISE',
             'routing': {
                 'axiom': 'openai-codex/gpt-5.4-mini',
-                'praxis': 'anthropic/claude-sonnet-4-6',
+                'praxis': 'zai/glm-5.1',
                 'crons': 'minimax-portal/MiniMax-M2.7',
             },
-            '_headroom': {'headroom_v2': {'mode': 'CRUISE', 'provider_modes': {'claude': 'CRUISE'}, 'composites': {'claude': 22.0, 'codex': 44.0}}},
+            '_headroom': {'headroom_v2': {'mode': 'CRUISE', 'provider_modes': {'codex': 'CRUISE'}, 'composites': {'codex': 44.0, 'zai': 22.0}}},
         },
     )
     _write_jsonl(swap_file, [])
@@ -42,7 +42,7 @@ def test_usage_governance_detects_protected_lane_downgrade(governance_root):
         routing_file=routing_file,
         swap_log_file=swap_file,
         headroom_history_file=history_file,
-        codexbar_payload={'providers': {'codex': {'primary_used_percent': 11}, 'claude': {'primary_used_percent': 23}}},
+        codexbar_payload={'providers': {'codex': {'primary_used_percent': 11}, 'zai': {'primary_used_percent': 23}}},
     )
     assert len(payload['protected_lane_downgrades']) == 1
     assert payload['protected_lane_downgrades'][0]['agent'] == 'axiom'
@@ -59,8 +59,8 @@ def test_usage_governance_detects_routing_churn(governance_root):
         routing_file,
         {
             'profile': 'CRUISE',
-            'routing': {'scout': 'anthropic/claude-sonnet-4-6', 'crons': 'minimax-portal/MiniMax-M2.7'},
-            '_headroom': {'headroom_v2': {'mode': 'CRUISE', 'provider_modes': {'claude': 'CRUISE'}, 'composites': {'claude': 20.0, 'codex': 41.0}}},
+            'routing': {'scout': 'openai-codex/gpt-5.4', 'crons': 'minimax-portal/MiniMax-M2.7'},
+            '_headroom': {'headroom_v2': {'mode': 'CRUISE', 'provider_modes': {'codex': 'CRUISE'}, 'composites': {'codex': 41.0, 'zai': 20.0}}},
         },
     )
     _write_jsonl(
@@ -79,7 +79,7 @@ def test_usage_governance_detects_routing_churn(governance_root):
         routing_file=routing_file,
         swap_log_file=swap_file,
         headroom_history_file=history_file,
-        codexbar_payload={'providers': {'codex': {'primary_used_percent': 11}, 'claude': {'primary_used_percent': 23}}},
+        codexbar_payload={'providers': {'codex': {'primary_used_percent': 11}, 'zai': {'primary_used_percent': 23}}},
     )
     assert payload['routing_churn']['high_churn'] is True
     assert {entry['agent'] for entry in payload['routing_churn']['churn_agents']} == {'scout', 'forge'}
@@ -96,8 +96,8 @@ def test_usage_governance_detects_ineffective_deficit_mitigation(governance_root
         routing_file,
         {
             'profile': 'PROTECT',
-            'routing': {'praxis': 'openai-codex/gpt-5.4-mini', 'crons': 'anthropic/claude-sonnet-4-6'},
-            '_headroom': {'headroom_v2': {'mode': 'PROTECT', 'provider_modes': {'claude': 'PROTECT'}, 'composites': {'claude': 72.0, 'codex': 50.0}}},
+            'routing': {'praxis': 'openai-codex/gpt-5.4-mini', 'crons': 'zai/glm-5.1'},
+            '_headroom': {'headroom_v2': {'mode': 'PROTECT', 'provider_modes': {'codex': 'PROTECT'}, 'composites': {'codex': 72.0, 'zai': 50.0}}},
         },
     )
     _write_jsonl(swap_file, [])
@@ -116,7 +116,7 @@ def test_usage_governance_detects_ineffective_deficit_mitigation(governance_root
         routing_file=routing_file,
         swap_log_file=swap_file,
         headroom_history_file=history_file,
-        codexbar_payload={'providers': {'codex': {'primary_used_percent': 52}, 'claude': {'primary_used_percent': 73}}},
+        codexbar_payload={'providers': {'codex': {'primary_used_percent': 73}, 'zai': {'primary_used_percent': 52}}},
     )
     assert payload['ineffective_deficit_mitigation']['detected'] is True
     assert payload['provider_pressure_watch']['high_pressure_detected'] is True
@@ -133,8 +133,8 @@ def test_usage_governance_detects_premium_low_value_assignment(governance_root):
         routing_file,
         {
             'profile': 'CRUISE',
-            'routing': {'crons': 'openai-codex/gpt-5.4', 'batch': 'anthropic/claude-haiku-4-5'},
-            '_headroom': {'headroom_v2': {'mode': 'CRUISE', 'provider_modes': {'codex': 'CRUISE'}, 'composites': {'claude': 10.0, 'codex': 40.0}}},
+            'routing': {'crons': 'openai-codex/gpt-5.4', 'batch': 'minimax-portal/MiniMax-M2.7'},
+            '_headroom': {'headroom_v2': {'mode': 'CRUISE', 'provider_modes': {'codex': 'CRUISE'}, 'composites': {'codex': 40.0, 'zai': 10.0}}},
         },
     )
     _write_jsonl(swap_file, [])
@@ -145,7 +145,7 @@ def test_usage_governance_detects_premium_low_value_assignment(governance_root):
         routing_file=routing_file,
         swap_log_file=swap_file,
         headroom_history_file=history_file,
-        codexbar_payload={'providers': {'codex': {'primary_used_percent': 68}, 'claude': {'primary_used_percent': 21}}},
+        codexbar_payload={'providers': {'codex': {'primary_used_percent': 68}, 'zai': {'primary_used_percent': 21}}},
     )
     assert payload['premium_low_value_assignments'] == [{'agent': 'crons', 'model': 'openai-codex/gpt-5.4'}]
     assert payload['lane_burn_insights'][0]['agent'] == 'crons'

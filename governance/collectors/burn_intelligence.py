@@ -126,7 +126,6 @@ def _recommendations(
         })
 
     codex_primary = ((usage.get('codex') or {}).get('primary_used_percent'))
-    claude_primary = ((usage.get('claude') or {}).get('primary_used_percent'))
     if codex_primary is not None and float(codex_primary) >= 60:
         hot = [item['agent'] for item in lane_insights if item.get('provider') == 'codex']
         if hot:
@@ -135,12 +134,6 @@ def _recommendations(
                 'kind': 'codex_pressure_relief',
                 'summary': f"Codex primary usage is elevated; review low-value codex lanes first: {', '.join(sorted(hot))}.",
             })
-    if claude_primary is not None and float(claude_primary) >= 60:
-        recs.append({
-            'priority': 'medium',
-            'kind': 'claude_pressure_watch',
-            'summary': 'Claude primary usage is elevated; protect high-quality lanes and avoid unnecessary premium expansion.',
-        })
 
     for item in recurring_lane_candidates[:3]:
         recs.append({
