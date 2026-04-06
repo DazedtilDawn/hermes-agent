@@ -506,7 +506,7 @@ def _evaluate_optimization_proposals(
         return messages
 
     key = '|'.join(f"{item['agent']}:{item['current_model']}->{item['recommended_model']}" for item in items)
-    if state.get('optimization_proposal_key') == key:
+    if not _should_alert(state, 'optimization_proposal', key, cooldown_seconds=28800):
         return messages
 
     artifact_path = persist_proposal_artifact(proposals, config=config, ledgers=ledgers)
@@ -554,8 +554,9 @@ def _evaluate_optimization_review_digest(
         evidence=[json.dumps(item, sort_keys=True) for item in items[:5]],
     )
     messages.append(
-        'Optimization review digest alert: recurring cost-quality pattern condensed for review. '
-        f'Incident: {incident_path.name} top={top.get("kind")}: {top.get("summary")}'
+        f'⚠️ Optimization review digest: {top.get("kind")} — {top.get("summary")}\n'
+        f'  Action: Review condensed signals; highest-priority items should inform next routing-policy update\n'
+        f'  Incident: {incident_path.name}'
     )
     state['optimization_digest_key'] = key
     return messages
@@ -590,8 +591,9 @@ def _evaluate_lane_recommendation_memory(
         evidence=[json.dumps(rec, sort_keys=True) for rec in recommendations[:5]],
     )
     msg = (
-        f'Lane recommendation memory alert: recurring optimization pattern detected. '
-        f'Incident: {incident_path.name} top={top.get("kind")}: {top.get("summary")}'
+        f'⚠️ Lane recommendation memory: {top.get("kind")} — {top.get("summary")}\n'
+        f'  Action: If this pattern persists across 3+ digests, promote to durable routing-policy review item\n'
+        f'  Incident: {incident_path.name}'
     )
     if recurrence > 0:
         msg += f' (cooldown suppressed {recurrence} prior recurrence(s))'
@@ -627,8 +629,10 @@ def _evaluate_burn_cause_hypotheses(
         evidence=[json.dumps(h, sort_keys=True) for h in hypotheses[:5]],
     )
     messages.append(
-        'Burn cause hypothesis alert: likely waste source identified. '
-        f'Incident: {incident_path.name} top={top.get("kind")}: {top.get("why")}'
+        f'⚠️ Burn cause hypothesis: {top.get("kind")} — {top.get("why")}\n'
+        f'  Confidence: {top.get("confidence")}\n'
+        f'  Action: If confidence=high, review affected lanes for immediate optimization\n'
+        f'  Incident: {incident_path.name}'
     )
     state['burn_cause_key'] = key
     return messages
@@ -661,8 +665,9 @@ def _evaluate_burn_intelligence(
     )
     top = recommendations[0]
     messages.append(
-        'Burn intelligence alert: new optimization signal detected. '
-        f'Incident: {incident_path.name} top={top.get("kind")}: {top.get("summary")}'
+        f'⚠️ Burn intelligence: {top.get("kind")} — {top.get("summary")}\n'
+        f'  Action: Compare with burn-attribution snapshots to see if this is recurring or novel\n'
+        f'  Incident: {incident_path.name}'
     )
     state['burn_recommendation_key'] = key
     return messages
@@ -677,7 +682,7 @@ def _evaluate_usage_governance(
 
     protected = usage.get('protected_lane_downgrades', [])
     protected_key = '|'.join(sorted(item['agent'] for item in protected))
-    if protected and state.get('usage_protected_key') != protected_key:
+    if protected and _should_alert(state, 'usage_protected', protected_key, cooldown_seconds=14400):
         incident_path = _emit_shadow_incident(
             ledgers,
             validator,
@@ -688,9 +693,15 @@ def _evaluate_usage_governance(
             touched_surfaces=['model_routing'],
             evidence=[json.dumps(item, sort_keys=True) for item in protected],
         )
+        details = '; '.join(
+            f"{item['agent']}: {item['current_model']} (expected {', '.join(item['preferred_models'])}, "
+            f"mode={item['current_mode']}, floor={item['minimum_mode_for_downgrade']})"
+            for item in protected
+        )
         messages.append(
-            'Usage governance alert: protected-quality lane downgrade detected. '
-            f'Incident: {incident_path.name} agents={",".join(item["agent"] for item in protected)}'
+            f'⚠️ Protected lane downgrade: {details}\n'
+            f'  Action: Review sovereign-router config or escalate routing mode\n'
+            f'  Incident: {incident_path.name}'
         )
         state['usage_protected_key'] = protected_key
     elif not protected:
@@ -698,7 +709,7 @@ def _evaluate_usage_governance(
 
     churn = usage.get('routing_churn', {})
     churn_key = f"{churn.get('recent_swap_count', 0)}:{','.join(sorted(item['agent'] for item in churn.get('churn_agents', [])))}"
-    if churn.get('high_churn') and state.get('usage_churn_key') != churn_key:
+    if churn.get('high_churn') and _should_alert(state, 'usage_churn', churn_key, cooldown_seconds=14400):
         incident_path = _emit_shadow_incident(
             ledgers,
             validator,
@@ -709,9 +720,12 @@ def _evaluate_usage_governance(
             touched_surfaces=['model_routing'],
             evidence=[json.dumps(churn, sort_keys=True)],
         )
+        churn_detail = ', '.join(f"{a['agent']}({a['swap_count']}x)" for a in churn.get('churn_agents', []))
         messages.append(
-            'Usage governance alert: routing churn detected. '
-            f'Incident: {incident_path.name} swaps={churn.get("recent_swap_count", 0)}'
+            f'⚠️ Routing churn: {churn.get("recent_swap_count", 0)} swaps in {churn.get("swap_window_minutes", "?")}min window\n'
+            f'  Agents: {churn_detail or "see incident"}\n'
+            f'  Action: Check swap-log.jsonl for oscillation patterns; consider widening swap cooldown\n'
+            f'  Incident: {incident_path.name}'
         )
         state['usage_churn_key'] = churn_key
     elif not churn.get('high_churn'):
@@ -731,8 +745,10 @@ def _evaluate_usage_governance(
             evidence=[json.dumps(ineffective, sort_keys=True)],
         )
         messages.append(
-            'Usage governance alert: deficit mitigation appears ineffective. '
-            f'Incident: {incident_path.name} mode={ineffective.get("mode")}'
+            f'⚠️ Ineffective deficit mitigation: system in {ineffective.get("mode")} mode for {ineffective.get("window_entries")} entries\n'
+            f'  Reason: {ineffective.get("reason")}\n'
+            f'  Action: Review headroom-history.jsonl; swaps are not reducing pressure — consider manual mode escalation or provider audit\n'
+            f'  Incident: {incident_path.name}'
         )
         state['usage_ineffective_key'] = ineffective_key
     elif not ineffective.get('detected'):
@@ -740,7 +756,7 @@ def _evaluate_usage_governance(
 
     low_value = usage.get('premium_low_value_assignments', [])
     low_value_key = '|'.join(sorted(f"{item['agent']}:{item['model']}" for item in low_value))
-    if low_value and state.get('usage_low_value_key') != low_value_key:
+    if low_value and _should_alert(state, 'usage_low_value', low_value_key, cooldown_seconds=14400):
         incident_path = _emit_shadow_incident(
             ledgers,
             validator,
@@ -751,9 +767,11 @@ def _evaluate_usage_governance(
             touched_surfaces=['model_routing'],
             evidence=[json.dumps(item, sort_keys=True) for item in usage.get('lane_burn_insights', [])],
         )
+        lane_details = '; '.join(f"{item['agent']} on {item['model']}" for item in low_value)
         messages.append(
-            'Usage governance alert: premium burn on low-value lane detected. '
-            f'Incident: {incident_path.name} lanes={",".join(item["agent"] for item in low_value)}'
+            f'⚠️ Premium burn on low-value lanes: {lane_details}\n'
+            f'  Action: Review routing-governance.yaml; consider downgrading these lanes to cost-effective models\n'
+            f'  Incident: {incident_path.name}'
         )
         state['usage_low_value_key'] = low_value_key
     elif not low_value:
@@ -761,7 +779,7 @@ def _evaluate_usage_governance(
 
     pressure = usage.get('provider_pressure_watch', {})
     pressure_key = '|'.join(sorted(f"{item['provider']}:{item['primary_used_percent']}" for item in pressure.get('providers_over_70_pct', [])))
-    if pressure.get('high_pressure_detected') and state.get('usage_pressure_key') != pressure_key:
+    if pressure.get('high_pressure_detected') and _should_alert(state, 'usage_pressure', pressure_key, cooldown_seconds=14400):
         incident_path = _emit_shadow_incident(
             ledgers,
             validator,
@@ -772,9 +790,11 @@ def _evaluate_usage_governance(
             touched_surfaces=['provider_usage'],
             evidence=[json.dumps(item, sort_keys=True) for item in pressure.get('providers_over_70_pct', [])],
         )
+        prov_details = ', '.join(f"{item['provider']} at {item['primary_used_percent']}%" for item in pressure.get('providers_over_70_pct', []))
         messages.append(
-            'Usage governance alert: high provider pressure detected. '
-            f'Incident: {incident_path.name} providers={",".join(item["provider"] for item in pressure.get("providers_over_70_pct", []))}'
+            f'⚠️ High provider pressure: {prov_details}\n'
+            f'  Action: Review CodexBar usage; consider shifting lanes to alternative providers or escalating mode\n'
+            f'  Incident: {incident_path.name}'
         )
         state['usage_pressure_key'] = pressure_key
     elif not pressure.get('high_pressure_detected'):
